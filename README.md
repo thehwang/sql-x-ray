@@ -57,7 +57,10 @@ pip install -e ".[dev]"
 
 ## Usage
 
+Two commands are installed: `sqlx-ray` and the short alias `sxr` (identical).
+
 ```bash
+sxr examples/top_users.sql                 # short alias for sqlx-ray
 sqlx-ray examples/top_users.sql            # walkthrough + Mermaid graph
 sqlx-ray query.sql --mermaid               # just the diagram
 sqlx-ray query.sql --walkthrough           # just the steps
