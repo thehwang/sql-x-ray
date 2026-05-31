@@ -13,6 +13,7 @@ from .walkthrough import walkthrough
 from .narrate import narrate, build_factsheet, NarrationUnavailable
 from .lint import lint, Finding, max_severity, meets_threshold
 from .lineage import column_lineage, ColumnLineage
+from .schema import build_schema_from_ddl, load_schema
 
 __version__ = "0.1.0"
 
@@ -34,5 +35,7 @@ __all__ = [
     "meets_threshold",
     "column_lineage",
     "ColumnLineage",
+    "build_schema_from_ddl",
+    "load_schema",
     "__version__",
 ]

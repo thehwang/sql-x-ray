@@ -20,6 +20,34 @@ risk lint, and optional local-LLM narration. Handles `SELECT`, `INSERT`,
 templating included). BigQuery dialect by default. See [`DESIGN.md`](DESIGN.md) for
 the full design and roadmap.
 
+## Demo
+
+Given a nested-CTE query ([`examples/top_users.sql`](examples/top_users.sql)),
+`sqlx-ray query.sql --mermaid` produces this data-flow graph (rendered live on
+GitHub):
+
+```mermaid
+flowchart TD
+  t_events[("events")]
+  t_orders[("orders")]
+  t_users[("users")]
+  n_active["active<br/><i>filter + group-by + aggregate</i>"]
+  n_paid["paid<br/><i>filter + group-by + aggregate + having</i>"]
+  n_ranked["ranked<br/><i>join + window</i>"]
+  n_result(["result<br/><i>join + filter</i>"])
+  t_events --> n_active
+  t_orders --> n_paid
+  t_users --> n_ranked
+  n_paid --> n_ranked
+  n_ranked --> n_result
+  n_active --> n_result
+```
+
+`--html` turns the same graph into a self-contained interactive page: click any
+node to highlight it and inspect that node's SQL, sources, operations, and outputs.
+
+![SQL X-Ray interactive HTML](docs/demo-html.png)
+
 ## Install (dev)
 
 ```bash
@@ -79,7 +107,20 @@ sqlx-ray examples/top_users.sql --lineage
 ```
 
 Pass a column name to trace just one (`--lineage total`). `SELECT *` and bare
-expressions can't be resolved by name and are reported as such.
+expressions can't be resolved by name **unless you supply a schema**:
+
+```bash
+# --schema takes DDL (CREATE TABLE ...) or a {table: {column: type}} JSON file.
+sqlx-ray "SELECT * FROM users u JOIN orders o ON u.user_id=o.user_id" \
+  --lineage --schema examples/schema.sql
+#   name    ←  users.name
+#   email   ←  users.email
+#   amount  ←  orders.amount
+#   ...
+```
+
+With a schema, `SELECT *` is expanded into its real columns and each is traced to
+its base table (aliases are resolved back to table names).
 
 ### Risk lint (`--lint`)
 

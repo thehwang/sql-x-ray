@@ -4,6 +4,7 @@ from sql_x_ray import (
     analyze,
     analyze_script,
     build_factsheet,
+    build_schema_from_ddl,
     column_lineage,
     lint,
     meets_threshold,
@@ -294,6 +295,37 @@ def test_lint_flags_update_without_where():
     assert any(f.rule == "full-table-write" and f.severity == "high" for f in findings)
     # A scoped UPDATE is clean.
     assert lint(analyze(UPDATE_FROM_SQL, dialect="bigquery")) == []
+
+
+# --- schema binding: precise SELECT * lineage ---
+
+DDL = """
+CREATE TABLE users (user_id INT64, name STRING, email STRING);
+CREATE TABLE orders (order_id INT64, user_id INT64, amount FLOAT64);
+"""
+
+STAR_SQL = "SELECT * FROM users u JOIN orders o ON u.user_id = o.user_id"
+
+
+def test_build_schema_from_ddl():
+    schema = build_schema_from_ddl(DDL, dialect="bigquery")
+    assert set(schema["users"]) == {"user_id", "name", "email"}
+    assert set(schema["orders"]) == {"order_id", "user_id", "amount"}
+
+
+def test_select_star_untraceable_without_schema():
+    model = analyze(STAR_SQL, dialect="bigquery")
+    assert column_lineage(model) == []  # '*' can't be traced by name
+
+
+def test_select_star_traceable_with_schema():
+    model = analyze(STAR_SQL, dialect="bigquery")
+    schema = build_schema_from_ddl(DDL, dialect="bigquery")
+    rows = {r.column: r.sources for r in column_lineage(model, schema=schema)}
+    # Stars expanded into real columns, resolved to base tables (alias -> table).
+    assert rows["name"] == ["users.name"]
+    assert rows["amount"] == ["orders.amount"]
+    assert rows["email"] == ["users.email"]
 
 
 def test_html_localization():

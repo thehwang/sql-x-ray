@@ -208,8 +208,14 @@ than MVP speed — but we'd be reimplementing lineage that sqlglot gives for fre
   one op per `WHEN` branch (`MATCHED → UPDATE`, `NOT MATCHED → INSERT`, etc.) and the
   written columns. New lint rule `full-table-write` (high) flags an `UPDATE`/`DELETE`
   with no `WHERE`. Verified on a real templated MERGE + multiple `UPDATE ... FROM`.
-- **v0.5+** — VS Code extension (right-click "explain this"); explicit schema
-  binding (DDL/db/dbt) for precise `SELECT *` lineage.
+- **v0.4.2 (schema binding, done)** — `--schema PATH` accepts DDL (`CREATE TABLE`)
+  or a `{table: {column: type}}` JSON file. With a schema, `column_lineage` runs
+  sqlglot's `qualify` to expand `SELECT *` into concrete output columns and traces
+  each to its base table (table aliases are resolved back to table names). Without a
+  schema, `*` is still reported as untraceable-by-name. README now carries a live
+  Mermaid demo plus an interactive-HTML screenshot (`docs/demo-html.png`).
+- **v0.5+** — VS Code extension (right-click "explain this"); dbt/warehouse schema
+  auto-discovery; publish to PyPI.
 
 Distribution mirrors `pq`: brew tap, releases, good `--help`, a tutorial doc.
 

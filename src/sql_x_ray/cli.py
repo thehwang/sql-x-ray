@@ -15,6 +15,7 @@ from .graph import to_mermaid
 from .htmlout import to_html
 from .lineage import column_lineage
 from .lint import lint, meets_threshold
+from .schema import load_schema
 from .narrate import DEFAULT_LANG, DEFAULT_MODEL, NarrationUnavailable, narrate
 from .walkthrough import walkthrough
 
@@ -57,11 +58,17 @@ def _run_lint(models, args) -> int:
 
 def _run_lineage(models, args) -> int:
     column = None if args.lineage == "*ALL*" else args.lineage
+    schema = None
+    if args.schema:
+        try:
+            schema = load_schema(args.schema, dialect=args.dialect)
+        except (OSError, ValueError) as exc:
+            print(f"[warning] could not load schema {args.schema!r}: {exc}", file=sys.stderr)
     multi = len(models) > 1
     for i, model in enumerate(models, 1):
         if multi:
             print(f"### Statement {i} — {model.statement_kind}")
-        rows = column_lineage(model, column=column)
+        rows = column_lineage(model, column=column, schema=schema)
         if not rows:
             print("  (no traceable output columns)")
         for row in rows:
@@ -157,6 +164,13 @@ def main(argv: list[str] | None = None) -> int:
         choices=("low", "medium", "high"),
         default=None,
         help="with --lint, exit non-zero if any finding is at or above this severity",
+    )
+    parser.add_argument(
+        "--schema",
+        metavar="PATH",
+        default=None,
+        help="with --lineage, a DDL (.sql CREATE TABLE) or .json schema file so "
+        "SELECT * expands into real columns and lineage is precise",
     )
     parser.add_argument("--version", action="version", version=f"sql-x-ray {__version__}")
     args = parser.parse_args(argv)
