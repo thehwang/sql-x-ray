@@ -1,5 +1,9 @@
 # SQL X-Ray
 
+[![CI](https://github.com/thehwang/sql-x-ray/actions/workflows/ci.yml/badge.svg)](https://github.com/thehwang/sql-x-ray/actions/workflows/ci.yml)
+[![Python](https://img.shields.io/badge/python-3.10%2B-blue)](https://www.python.org/)
+[![License: MIT](https://img.shields.io/badge/license-MIT-green)](LICENSE)
+
 > See through any SQL. Paste a gnarly nested-CTE query and get back a data-flow
 > diagram, per-CTE responsibilities, and a plain-language walkthrough — **without
 > running the query**.
