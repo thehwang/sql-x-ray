@@ -174,6 +174,27 @@ The IR is the hub; every feature is a consumer of it. This keeps the
 deterministic core (parsing, graph, lineage) separate from the probabilistic
 shell (LLM narration, coming in v0.2).
 
+## Releasing
+
+Publishing to PyPI uses **Trusted Publishing (OIDC)** — no API token or stored
+secret. One-time setup on PyPI, then every GitHub Release publishes automatically:
+
+1. On [pypi.org](https://pypi.org) → your account → *Publishing* → add a
+   **pending trusted publisher**:
+   - PyPI Project Name: `sql-x-ray`
+   - Owner: `thehwang`, Repository: `sql-x-ray`
+   - Workflow name: `publish.yml`
+   - Environment name: `pypi`
+2. In the GitHub repo, create an environment named `pypi`
+   (Settings → Environments).
+3. Cut a release — tag it `vX.Y.Z` and publish via the GitHub UI or:
+
+```bash
+gh release create v0.1.0 --title "v0.1.0" --notes "First release."
+```
+
+The `publish.yml` workflow builds the sdist + wheel and uploads them to PyPI.
+
 ## License
 
 MIT

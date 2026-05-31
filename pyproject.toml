@@ -11,9 +11,27 @@ requires-python = ">=3.10"
 license = { text = "MIT" }
 authors = [{ name = "thehwang" }]
 keywords = ["sql", "lineage", "explain", "bigquery", "sqlglot", "mermaid", "cli"]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Environment :: Console",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Topic :: Database",
+    "Topic :: Software Development :: Documentation",
+    "Topic :: Utilities",
+]
 dependencies = [
     "sqlglot>=25.0.0",
 ]
+
+[project.urls]
+Homepage = "https://github.com/thehwang/sql-x-ray"
+Repository = "https://github.com/thehwang/sql-x-ray"
+Issues = "https://github.com/thehwang/sql-x-ray/issues"
 
 [project.scripts]
 sqlx-ray = "sql_x_ray.cli:main"
