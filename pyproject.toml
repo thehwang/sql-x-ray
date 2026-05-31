@@ -1,0 +1,29 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "sql-x-ray"
+version = "0.1.0"
+description = "See through any SQL: data-flow diagram, CTE responsibilities, and a plain-language walkthrough — without running the query."
+readme = "README.md"
+requires-python = ">=3.10"
+license = { text = "MIT" }
+authors = [{ name = "thehwang" }]
+keywords = ["sql", "lineage", "explain", "bigquery", "sqlglot", "mermaid", "cli"]
+dependencies = [
+    "sqlglot>=25.0.0",
+]
+
+[project.scripts]
+sqlx-ray = "sql_x_ray.cli:main"
+sxr = "sql_x_ray.cli:main"
+
+[project.optional-dependencies]
+dev = ["pytest>=8.0"]
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.setuptools.package-data]
+sql_x_ray = ["vendor/*.js"]
