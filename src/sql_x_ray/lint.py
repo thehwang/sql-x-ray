@@ -125,6 +125,19 @@ def lint(model: SqlModel) -> list[Finding]:
         return []
 
     findings: list[Finding] = []
+
+    # Statement-level: an UPDATE/DELETE with no WHERE rewrites/deletes every row.
+    if isinstance(root, (exp.Update, exp.Delete)) and root.args.get("where") is None:
+        verb = "UPDATE" if isinstance(root, exp.Update) else "DELETE"
+        findings.append(
+            Finding(
+                "full-table-write",
+                "high",
+                "result",
+                f"{verb} has no WHERE clause — it affects every row in the table.",
+            )
+        )
+
     for name, sel in _scopes(root):
         findings.extend(_lint_select(name, sel))
     findings.sort(key=lambda f: -_SEV_RANK.get(f.severity, 0))

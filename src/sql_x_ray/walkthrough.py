@@ -85,6 +85,12 @@ def _ops_phrases(node: QueryNode, verbose: bool) -> list[str]:
             phrases.append(f"limits to {op.detail} row(s)")
         elif op.kind == "distinct":
             phrases.append("removes duplicate rows")
+        elif op.kind == "set":
+            phrases.append(_list_phrase("sets", op, verbose))
+        elif op.kind == "match":
+            phrases.append(f"matches target and source on {detail}")
+        elif op.kind == "merge-when":
+            phrases.append(op.brief or _clip(op.detail))
     return phrases
 
 
@@ -117,6 +123,17 @@ def _header(model: SqlModel) -> str:
     if kind == "DELETE":
         tgt = f"`{model.target_table}`" if model.target_table else "a table"
         return f"DELETE statement on {tgt}.{tmpl}"
+
+    if kind == "UPDATE":
+        tgt = f"`{model.target_table}`" if model.target_table else "a table"
+        return f"UPDATE statement modifying {tgt}.{tmpl}"
+
+    if kind == "MERGE":
+        tgt = f"`{model.target_table}`" if model.target_table else "a table"
+        return (
+            f"MERGE (upsert) into {tgt}: matches a source against the target, then "
+            f"applies per-branch writes.{tmpl}"
+        )
 
     cte_count = len(model.ctes)
     n_steps = len(model.nodes)

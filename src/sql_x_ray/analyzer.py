@@ -128,6 +128,29 @@ def _node_from_select(
     )
 
 
+def _set_assignments(stmt: exp.Expression) -> tuple[str, list[str]]:
+    """(joined `col = expr` text, written column names) for a SET clause."""
+    parts: list[str] = []
+    cols: list[str] = []
+    for e in stmt.args.get("expressions") or []:
+        parts.append(e.sql())
+        if isinstance(e, exp.EQ):
+            left = e.this
+            name = left.name if isinstance(left, exp.Column) else left.sql()
+            if name and name not in cols:
+                cols.append(name)
+    return ", ".join(parts), cols
+
+
+def _other_tables(stmt: exp.Expression, exclude: str | None) -> list[str]:
+    """Base tables referenced by `stmt`, minus the write target itself."""
+    names: list[str] = []
+    for t in stmt.find_all(exp.Table):
+        if t.name and t.name != exclude and t.name not in names:
+            names.append(t.name)
+    return names
+
+
 def _table_name(expr: object) -> str | None:
     # sqlglot's Command fallback stores its payload as a plain string, so guard
     # against anything that isn't a parsed expression.
@@ -151,6 +174,131 @@ def _query_nodes(query: exp.Expression, cte_names: set[str]) -> list[QueryNode]:
         with_node.pop()
     nodes.append(_node_from_select("result", final, cte_names, is_final=True))
     return nodes
+
+
+def _analyze_update(stmt: exp.Expression, dialect: str, templated: bool) -> SqlModel:
+    target = _table_name(stmt.this)
+    detail, written = _set_assignments(stmt)
+    sources = _other_tables(stmt, exclude=target)
+
+    ops: list[Operation] = []
+    where = stmt.args.get("where")
+    if where is not None:
+        ops.append(Operation("filter", where.this.sql()))
+    if detail:
+        ops.append(Operation("set", detail, brief=f"{len(written)} column(s)"))
+
+    try:
+        sql_text = stmt.sql(pretty=True)
+    except Exception:
+        sql_text = ""
+    node = QueryNode(
+        name="update",
+        is_final=True,
+        source_tables=sources,
+        operations=ops,
+        output_columns=written,
+        sql_text=sql_text,
+    )
+    return SqlModel(
+        dialect=dialect,
+        nodes=[node],
+        statement_kind="UPDATE",
+        target_table=target,
+        templated=templated,
+    )
+
+
+def _merge_source_node(using: exp.Expression) -> tuple[QueryNode | None, str | None]:
+    """A node for the MERGE source. Returns (node, table_name): a derived source
+    becomes its own node; a plain table is just a name the merge node reads."""
+    if isinstance(using, exp.Table):
+        return None, using.name
+
+    alias = using.alias or "source"
+    tables: list[str] = []
+    for t in using.find_all(exp.Table):
+        if t.name and t.name not in tables:
+            tables.append(t.name)
+    inner = using.this if isinstance(using, exp.Subquery) else using
+    ops = _operations(inner) if isinstance(inner, exp.Select) else []
+    try:
+        sql_text = using.sql(pretty=True)
+    except Exception:
+        sql_text = ""
+    node = QueryNode(
+        name=alias,
+        is_final=False,
+        source_tables=tables,
+        operations=ops,
+        sql_text=sql_text,
+    )
+    return node, None
+
+
+def _when_op(when: exp.Expression) -> tuple[Operation, list[str]]:
+    wsql = " ".join(when.sql().split())
+    if " THEN " in wsql:
+        head, tail = wsql.split(" THEN ", 1)
+        action = tail.split()[0].upper() if tail.split() else "?"
+    else:
+        head, action = wsql, "?"
+    cond = head.replace("WHEN ", "", 1)
+    brief = f"{cond} \u2192 {action}"
+
+    written: list[str] = []
+    then = when.args.get("then")
+    if isinstance(then, exp.Update):
+        _, written = _set_assignments(then)
+    return Operation("merge-when", wsql, brief=brief), written
+
+
+def _analyze_merge(stmt: exp.Expression, dialect: str, templated: bool) -> SqlModel:
+    target = _table_name(stmt.this)
+    nodes: list[QueryNode] = []
+
+    src_node, src_table = (None, None)
+    using = stmt.args.get("using")
+    if using is not None:
+        src_node, src_table = _merge_source_node(using)
+    if src_node is not None:
+        nodes.append(src_node)
+
+    merge_ops: list[Operation] = []
+    on = stmt.args.get("on")
+    if on is not None:
+        merge_ops.append(Operation("match", on.sql(), brief="match key"))
+
+    written_all: list[str] = []
+    whens = stmt.args.get("whens")
+    for w in getattr(whens, "expressions", []) or []:
+        op, written = _when_op(w)
+        merge_ops.append(op)
+        for c in written:
+            if c not in written_all:
+                written_all.append(c)
+
+    try:
+        sql_text = stmt.sql(pretty=True)
+    except Exception:
+        sql_text = ""
+    merge_node = QueryNode(
+        name="merge",
+        is_final=True,
+        source_tables=[src_table] if src_table else [],
+        source_ctes=[src_node.name] if src_node is not None else [],
+        operations=merge_ops,
+        output_columns=written_all,
+        sql_text=sql_text,
+    )
+    nodes.append(merge_node)
+    return SqlModel(
+        dialect=dialect,
+        nodes=nodes,
+        statement_kind="MERGE",
+        target_table=target,
+        templated=templated,
+    )
 
 
 def _analyze_statement(stmt: exp.Expression, dialect: str, templated: bool) -> SqlModel:
@@ -193,6 +341,14 @@ def _analyze_statement(stmt: exp.Expression, dialect: str, templated: bool) -> S
             target_table=target,
             templated=templated,
         )
+
+    # UPDATE target SET ... [FROM source] WHERE ...
+    if isinstance(stmt, exp.Update):
+        return _analyze_update(stmt, dialect, templated)
+
+    # MERGE target USING source ON ... WHEN MATCHED/NOT MATCHED THEN ...
+    if isinstance(stmt, exp.Merge):
+        return _analyze_merge(stmt, dialect, templated)
 
     # Plain query: SELECT / UNION / ...
     if isinstance(stmt, exp.Query):

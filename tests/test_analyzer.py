@@ -245,6 +245,57 @@ def test_lint_clean_query_has_no_findings():
     assert lint(model) == []
 
 
+# --- UPDATE / MERGE data flow ---
+
+MERGE_SQL = """
+MERGE dim_users AS T
+USING (SELECT id, val FROM stg_a UNION ALL SELECT id, val FROM stg_b) AS S
+ON T.id = S.id
+WHEN MATCHED THEN UPDATE SET val = S.val, updated_at = CURRENT_DATE()
+WHEN NOT MATCHED THEN INSERT (id, val) VALUES (S.id, S.val)
+"""
+
+UPDATE_FROM_SQL = """
+UPDATE tgt T SET T.flag = true FROM dim_x S WHERE T.id = S.id
+"""
+
+
+def test_merge_models_source_and_branches():
+    model = analyze(MERGE_SQL, dialect="bigquery")
+    assert model.statement_kind == "MERGE"
+    assert model.target_table == "dim_users"
+    # The USING subquery becomes its own source node reading the base tables.
+    source = next(n for n in model.nodes if not n.is_final)
+    assert set(source.source_tables) == {"stg_a", "stg_b"}
+    # The merge node carries the match key and one op per WHEN branch.
+    merge = model.final
+    kinds = merge.op_kinds()
+    assert "match" in kinds
+    assert kinds.count("merge-when") == 2
+    assert "updated_at" in merge.output_columns
+    # Graph routes the merge into the target as a write sink.
+    mermaid = to_mermaid(model)
+    assert "==>|MERGE|" in mermaid
+    assert "dim_users" in mermaid
+
+
+def test_update_from_tracks_source_and_written_columns():
+    model = analyze(UPDATE_FROM_SQL, dialect="bigquery")
+    assert model.statement_kind == "UPDATE"
+    assert model.target_table == "tgt"
+    node = model.final
+    assert node.source_tables == ["dim_x"]  # the FROM source, not the target
+    assert node.output_columns == ["flag"]
+    assert "set" in node.op_kinds() and "filter" in node.op_kinds()
+
+
+def test_lint_flags_update_without_where():
+    findings = lint(analyze("UPDATE tgt SET active = false", dialect="bigquery"))
+    assert any(f.rule == "full-table-write" and f.severity == "high" for f in findings)
+    # A scoped UPDATE is clean.
+    assert lint(analyze(UPDATE_FROM_SQL, dialect="bigquery")) == []
+
+
 def test_html_localization():
     models = analyze_script(EXAMPLE.read_text(), dialect="bigquery")
     page = to_html(models, lang="Chinese")

@@ -14,8 +14,11 @@ each step does. It really parses the SQL (via [sqlglot](https://github.com/tobym
 so the structure and diagram are trustworthy — an LLM is only used (later) to
 polish the prose, never to figure out the SQL.
 
-**Status:** v0.1 — BigQuery dialect, data-flow graph + walkthrough, no LLM yet.
-See [`DESIGN.md`](DESIGN.md) for the full design and roadmap.
+**Status:** data-flow graph + walkthrough, interactive HTML, column-level lineage,
+risk lint, and optional local-LLM narration. Handles `SELECT`, `INSERT`,
+`CREATE ... AS`, `DELETE`, `UPDATE`, and `MERGE` (multi-statement scripts and Jinja
+templating included). BigQuery dialect by default. See [`DESIGN.md`](DESIGN.md) for
+the full design and roadmap.
 
 ## Install (dev)
 
@@ -85,6 +88,7 @@ and CI-friendly:
 
 | rule | severity | what it catches |
 |------|----------|-----------------|
+| `full-table-write` | high | `UPDATE`/`DELETE` with no `WHERE` — affects every row |
 | `cartesian-join` | high | condition-less join between tables (comma/`CROSS JOIN`), row explosion |
 | `select-star` | medium | `SELECT *` — brittle to schema changes, wider scans |
 | `having-without-aggregate` | medium | `HAVING` with no aggregate that belongs in `WHERE` |

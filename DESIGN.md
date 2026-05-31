@@ -201,8 +201,15 @@ than MVP speed — but we'd be reimplementing lineage that sqlglot gives for fre
   to analyze the underlying query. Full statement SQL is captured into the IR
   (`SqlModel.statement_sql`) so lint/lineage re-parse cleanly. Verified clean on the
   example + 121-file corpus and firing on crafted risky SQL.
+- **v0.4.1 (UPDATE/MERGE data flow, done)** — `UPDATE` models its write target as a
+  sink, the `FROM`/correlated tables as sources, and the `SET` assignments as written
+  columns (`output_columns`). `MERGE` turns its `USING` subquery into its own source
+  node (reading the base tables), then the merge node carries the `ON` match key plus
+  one op per `WHEN` branch (`MATCHED → UPDATE`, `NOT MATCHED → INSERT`, etc.) and the
+  written columns. New lint rule `full-table-write` (high) flags an `UPDATE`/`DELETE`
+  with no `WHERE`. Verified on a real templated MERGE + multiple `UPDATE ... FROM`.
 - **v0.5+** — VS Code extension (right-click "explain this"); explicit schema
-  binding (DDL/db/dbt) for precise `SELECT *` lineage; UPDATE/MERGE data flow.
+  binding (DDL/db/dbt) for precise `SELECT *` lineage.
 
 Distribution mirrors `pq`: brew tap, releases, good `--help`, a tutorial doc.
 

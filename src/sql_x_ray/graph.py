@@ -22,6 +22,9 @@ _OP_TAG = {
     "order": "order",
     "limit": "limit",
     "distinct": "distinct",
+    "set": "set",
+    "match": "match-on",
+    "merge-when": "when",
 }
 
 
@@ -79,10 +82,15 @@ def to_mermaid(model: SqlModel) -> str:
             if src:
                 lines.append(f"  {src} --> {dst}")
 
-    # Write target (INSERT/CREATE): the final node flows into a sink table.
-    if model.target_table and model.statement_kind in ("INSERT", "CREATE"):
+    # Write target (INSERT/CREATE/UPDATE/MERGE): the final node flows into a sink.
+    if model.target_table and model.statement_kind in (
+        "INSERT",
+        "CREATE",
+        "UPDATE",
+        "MERGE",
+    ):
         sink = f"w_{_safe_id(model.target_table)}"
-        verb = "INSERT" if model.statement_kind == "INSERT" else "CREATE"
+        verb = model.statement_kind
         lines.append(f'  {sink}[("{model.target_table}<br/><i>{verb}</i>")]')
         final = model.final
         if final is not None:
