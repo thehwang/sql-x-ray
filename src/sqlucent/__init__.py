@@ -13,6 +13,7 @@ from .walkthrough import walkthrough
 from .narrate import narrate, build_factsheet, NarrationUnavailable
 from .lint import lint, Finding, max_severity, meets_threshold
 from .config import Config, load_config, find_config
+from .cost import estimate_cost, format_cost, column_width, CostEstimate, TableCost
 from .lineage import column_lineage, ColumnLineage
 from .schema import build_schema_from_ddl, load_schema
 from .project import analyze_project, project_mermaid, project_summary, ProjectGraph
@@ -44,6 +45,11 @@ __all__ = [
     "Config",
     "load_config",
     "find_config",
+    "estimate_cost",
+    "format_cost",
+    "column_width",
+    "CostEstimate",
+    "TableCost",
     "meets_threshold",
     "column_lineage",
     "ColumnLineage",

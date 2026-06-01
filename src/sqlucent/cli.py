@@ -13,6 +13,7 @@ import sys
 from . import __version__
 from .analyzer import analyze_script
 from .config import fingerprint, load_baseline, load_config, write_baseline
+from .cost import estimate_cost, format_cost
 from .graph import to_mermaid
 from .htmlout import to_html
 from .lineage import column_lineage
@@ -100,6 +101,27 @@ def _run_lint(models, args, config) -> int:
     print(summary)
     if args.fail_on and meets_threshold(all_findings, args.fail_on):
         return 1
+    return 0
+
+
+def _run_cost(models, args, config) -> int:
+    if not args.schema:
+        print("error: --cost needs --schema (column types) to estimate bytes", file=sys.stderr)
+        return 2
+    try:
+        schema = load_schema(args.schema, dialect=args.dialect)
+    except (OSError, ValueError) as exc:
+        print(f"error: could not load schema {args.schema!r}: {exc}", file=sys.stderr)
+        return 2
+
+    multi = len(models) > 1
+    for i, model in enumerate(models, 1):
+        if multi:
+            print(f"### Statement {i} — {model.statement_kind}")
+        est = estimate_cost(model, schema, config)
+        print(format_cost(est))
+        if multi:
+            print()
     return 0
 
 
@@ -197,6 +219,11 @@ def main(argv: list[str] | None = None) -> int:
         help="run risk checks (cross joins, SELECT *, HAVING pushdown, ...)",
     )
     out.add_argument(
+        "--cost",
+        action="store_true",
+        help="estimate bytes scanned per table (needs --schema; row counts via .sqlucent.toml)",
+    )
+    out.add_argument(
         "--lineage",
         nargs="?",
         const="*ALL*",
@@ -267,9 +294,11 @@ def main(argv: list[str] | None = None) -> int:
         print("error: no statements found", file=sys.stderr)
         return 1
 
-    if args.lint:
+    if args.lint or args.cost:
         start = "." if args.file == "-" else os.path.dirname(os.path.abspath(args.file))
         config = load_config(args.config, start=start)
+        if args.cost:
+            return _run_cost(models, args, config)
         return _run_lint(models, args, config)
     if args.lineage:
         return _run_lineage(models, args)

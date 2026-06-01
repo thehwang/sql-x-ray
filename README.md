@@ -203,6 +203,31 @@ sqlucent query.sql --lint --baseline .sqlucent-baseline.json --fail-on high   # 
 sqlucent query.sql --lint --config path/to/.sqlucent.toml            # explicit config path
 ```
 
+### Scan-cost estimate (`--cost`, needs `--schema`)
+
+BigQuery bills by **bytes scanned** = referenced columns × rows scanned. Feed a
+schema (column types) and `--cost` turns the boolean "missing filter" check into a
+real number: how much of each row you actually scan (column pruning) and — with
+row counts from `[cost.table_rows]` — absolute bytes and dollars.
+
+```bash
+sqlucent query.sql --cost --schema schema.sql
+#   orders: 2/4 cols, 16 B/row (50% of 32 B full row) × 80,000,000,000 rows = 1.2 TB
+#   TOTAL ≈ 1.2 TB scanned  →  $8.00 at $6.25/TB
+```
+
+Add a `WHERE` on the partition column and the same query collapses to a fraction
+(`partition_selectivity`), making the savings concrete:
+
+```
+#   orders: 3/4 cols, 24 B/row × 80,000,000,000 rows (partition-pruned) = 35.8 GB
+#   TOTAL ≈ 35.8 GB scanned  →  $0.24 at $6.25/TB
+```
+
+Columns referenced only in `WHERE`/`JOIN` count (they're read too); `COUNT(*)` is
+metadata-only (0 bytes). Variable-width types use the configurable `string_bytes`
+assumption, so totals are estimates, not invoices.
+
 ### Plain-language narration (local LLM, optional)
 
 With [Ollama](https://ollama.com) running, `--narrate` turns the parsed facts into

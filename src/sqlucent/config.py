@@ -11,9 +11,17 @@ select-star = "low"                     # override a rule's severity
 
 [cost]
 require_partition_filter = true
+price_per_tb = 6.25                     # USD per TB scanned (on-demand)
+string_bytes = 16                       # assumed avg width for STRING/BYTES
+partition_selectivity = 1.0             # fraction of a partitioned table a filter scans
+
 [cost.partitions]                       # declare partitioned tables + their column
 events = "event_date"
 orders = "ts"
+
+[cost.table_rows]                       # optional row counts → absolute byte estimates
+events = 5_000_000_000
+orders = 80_000_000
 ```
 
 A *baseline* (a JSON file of current findings) lets teams adopt the linter on a
@@ -39,6 +47,10 @@ class Config:
     severity: dict[str, str] = field(default_factory=dict)
     partitions: dict[str, str] = field(default_factory=dict)
     require_partition_filter: bool = True
+    table_rows: dict[str, int] = field(default_factory=dict)
+    price_per_tb: float = 6.25
+    string_bytes: int = 16
+    partition_selectivity: float = 1.0
 
     def apply(self, findings: list) -> list:
         """Drop disabled rules and apply severity overrides to a finding list."""
@@ -74,11 +86,16 @@ def load_config(path: str | Path | None = None, start: str | Path = ".") -> Conf
     cost = data.get("cost", {}) or {}
     severity = {str(k): str(v) for k, v in (rules.get("severity", {}) or {}).items()}
     partitions = {str(k): str(v) for k, v in (cost.get("partitions", {}) or {}).items()}
+    table_rows = {str(k): int(v) for k, v in (cost.get("table_rows", {}) or {}).items()}
     return Config(
         disabled=set(rules.get("disable", []) or []),
         severity=severity,
         partitions=partitions,
         require_partition_filter=bool(cost.get("require_partition_filter", True)),
+        table_rows=table_rows,
+        price_per_tb=float(cost.get("price_per_tb", 6.25)),
+        string_bytes=int(cost.get("string_bytes", 16)),
+        partition_selectivity=float(cost.get("partition_selectivity", 1.0)),
     )
 
 

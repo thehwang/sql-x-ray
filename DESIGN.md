@@ -239,6 +239,16 @@ than MVP speed — but we'd be reimplementing lineage that sqlglot gives for fre
   A **baseline** workflow (`--write-baseline` to snapshot, `--baseline` to suppress)
   grandfathers existing findings so teams can gate only *new* issues in CI.
   `tomli` is a dependency only on Python < 3.11 (stdlib `tomllib` otherwise).
+- **v0.2.0 (schema-driven scan-cost estimate, done)** — `--cost --schema` makes the
+  cost concrete instead of boolean. BigQuery bills bytes scanned = referenced
+  columns × rows; columnar storage means you pay only for the columns you touch
+  (incl. `WHERE`/`JOIN` columns; `COUNT(*)` is metadata-only) and the partitions
+  you read. We qualify the query against the schema (expanding `SELECT *`), sum
+  per-column byte widths from types, and report bytes/row and the share of each
+  row scanned. With `[cost.table_rows]` (+ `partition_selectivity`, `price_per_tb`,
+  `string_bytes`) it yields absolute bytes and dollars — e.g. a full scan at 1.2 TB
+  / $8.00 collapses to 35.8 GB / $0.24 once a partition filter prunes it.
+  Variable-width types use a configurable assumption, so totals are estimates.
 - **v0.5+** — VS Code extension (right-click "explain this"); dbt/warehouse schema
   auto-discovery; semantic SQL diff; bytes-scanned estimates from schema.
 

@@ -12,6 +12,10 @@ select-star = "low"
 [cost]
 # Master switch for the partition cost rule.
 require_partition_filter = true
+# --cost (schema-driven byte estimate) knobs:
+price_per_tb = 6.25          # USD per TB scanned (BigQuery on-demand)
+string_bytes = 16            # assumed avg width for STRING/BYTES values
+partition_selectivity = 0.05 # fraction of a partitioned table a typical filter scans
 
 [cost.partitions]
 # Declare partitioned tables and their partition column. A scan of one of these
@@ -19,3 +23,9 @@ require_partition_filter = true
 # (full-table scan = expensive in BigQuery).
 events = "event_date"
 orders = "order_ts"
+
+[cost.table_rows]
+# Optional row counts. With these, `--cost --schema ...` reports absolute bytes
+# scanned and an estimated dollar cost (not just bytes/row).
+events = 5_000_000_000
+orders = 80_000_000

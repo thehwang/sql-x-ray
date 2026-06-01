@@ -16,7 +16,7 @@ from sqlucent import (
     to_mermaid,
     walkthrough,
 )
-from sqlucent import Config, load_config
+from sqlucent import Config, column_width, estimate_cost, load_config
 from sqlucent.preprocess import strip_templating
 
 EXAMPLE = Path(__file__).resolve().parents[1] / "examples" / "top_users.sql"
@@ -338,12 +338,73 @@ def test_config_disable_and_severity_override():
 
 def test_load_config_from_toml(tmp_path):
     (tmp_path / ".sqlucent.toml").write_text(
-        "[rules]\ndisable = ['select-star']\n[cost.partitions]\nevents = 'event_date'\n",
+        "[rules]\ndisable = ['select-star']\n[cost.partitions]\nevents = 'event_date'\n"
+        "[cost.table_rows]\nevents = 1000\n",
         encoding="utf-8",
     )
     cfg = load_config(start=tmp_path)
     assert "select-star" in cfg.disabled
     assert cfg.partitions == {"events": "event_date"}
+    assert cfg.table_rows == {"events": 1000}
+
+
+# --- schema-driven cost estimate ---
+
+COST_SCHEMA = {
+    "orders": {"order_id": "INT64", "user_id": "INT64", "amount": "FLOAT64", "ts": "TIMESTAMP"},
+}
+
+
+def test_column_width_types():
+    assert column_width("INT64")[0] == 8
+    assert column_width("BOOL")[0] == 1
+    assert column_width("NUMERIC")[0] == 16
+    assert column_width("STRING", string_bytes=20)[0] == 20
+    assert column_width("ARRAY<INT64>")[1] is False  # nested → unknown
+
+
+def test_cost_column_pruning_ratio():
+    model = analyze("SELECT order_id, amount FROM orders", dialect="bigquery")
+    est = estimate_cost(model, COST_SCHEMA)
+    (t,) = est.tables
+    assert t.bytes_per_row == 16  # two INT64/FLOAT64 cols
+    assert t.full_bytes_per_row == 32
+    assert sorted(t.scanned_columns) == ["amount", "order_id"]
+
+
+def test_cost_filter_columns_are_scanned():
+    # ts only appears in WHERE but is still read → counts toward bytes scanned.
+    model = analyze(
+        "SELECT order_id FROM orders WHERE ts >= '2026-01-01'", dialect="bigquery"
+    )
+    est = estimate_cost(model, COST_SCHEMA)
+    (t,) = est.tables
+    assert "ts" in t.scanned_columns
+
+
+def test_cost_absolute_bytes_and_partition_pruning():
+    cfg = Config(
+        partitions={"orders": "ts"},
+        table_rows={"orders": 1_000_000},
+        partition_selectivity=0.1,
+    )
+    no_filter = estimate_cost(
+        analyze("SELECT amount FROM orders", dialect="bigquery"), COST_SCHEMA, cfg
+    )
+    pruned = estimate_cost(
+        analyze("SELECT amount FROM orders WHERE ts >= '2026-01-01'", dialect="bigquery"),
+        COST_SCHEMA,
+        cfg,
+    )
+    assert no_filter.total_bytes is not None
+    # The pruned scan reads ~10% the rows despite the extra ts column → far fewer bytes.
+    assert pruned.total_bytes < no_filter.total_bytes
+    assert pruned.tables[0].partition_pruned is True
+
+
+def test_cost_count_star_is_metadata_only():
+    est = estimate_cost(analyze("SELECT COUNT(*) FROM orders", dialect="bigquery"), COST_SCHEMA)
+    assert est.tables == []
 
 
 # --- schema binding: precise SELECT * lineage ---
