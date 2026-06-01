@@ -1,0 +1,21 @@
+# Example SQLucent lint config. Copy to your project root as `.sqlucent.toml`;
+# `sqlucent --lint file.sql` auto-discovers it from the file's directory upward.
+
+[rules]
+# Turn rules off entirely.
+disable = ["distinct-with-group-by"]
+
+[rules.severity]
+# Override a rule's severity (low | medium | high).
+select-star = "low"
+
+[cost]
+# Master switch for the partition cost rule.
+require_partition_filter = true
+
+[cost.partitions]
+# Declare partitioned tables and their partition column. A scan of one of these
+# tables without a WHERE filter on the partition column is flagged "high"
+# (full-table scan = expensive in BigQuery).
+events = "event_date"
+orders = "order_ts"

@@ -167,10 +167,40 @@ and CI-friendly:
 | `select-star` | medium | `SELECT *` — brittle to schema changes, wider scans |
 | `having-without-aggregate` | medium | `HAVING` with no aggregate that belongs in `WHERE` |
 | `distinct-with-group-by` | low | redundant `DISTINCT` alongside `GROUP BY` |
+| `partition-filter-missing` | high | scan of a **declared partitioned table** with no `WHERE` on its partition column — full-table scan, expensive in BigQuery (config-gated) |
 
 ```bash
 sqlucent query.sql --lint                  # report findings
 sqlucent query.sql --lint --fail-on high   # exit 1 if any finding ≥ high (CI gate)
+```
+
+### Config & cost lint (`.sqlucent.toml`)
+
+Drop a `.sqlucent.toml` at your project root (auto-discovered from the file's
+directory upward) to tune rules and declare partitioned tables so the BigQuery
+cost rule can fire. See [`examples/.sqlucent.toml`](examples/.sqlucent.toml):
+
+```toml
+[rules]
+disable = ["distinct-with-group-by"]   # turn rules off
+
+[rules.severity]
+select-star = "low"                     # override a rule's severity
+
+[cost]
+require_partition_filter = true
+[cost.partitions]                       # table -> partition column
+events = "event_date"
+orders = "order_ts"
+```
+
+**Baseline** (adopt the linter on a legacy codebase — grandfather existing
+findings, gate only new ones):
+
+```bash
+sqlucent query.sql --lint --write-baseline .sqlucent-baseline.json   # snapshot today's findings
+sqlucent query.sql --lint --baseline .sqlucent-baseline.json --fail-on high   # only new highs fail
+sqlucent query.sql --lint --config path/to/.sqlucent.toml            # explicit config path
 ```
 
 ### Plain-language narration (local LLM, optional)

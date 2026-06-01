@@ -12,6 +12,7 @@ import sys
 
 from . import __version__
 from .analyzer import analyze_script
+from .config import fingerprint, load_baseline, load_config, write_baseline
 from .graph import to_mermaid
 from .htmlout import to_html
 from .lineage import column_lineage
@@ -55,11 +56,29 @@ def _run_project(args) -> int:
 _SEV_ICON = {"high": "✗", "medium": "⚠", "low": "·"}
 
 
-def _run_lint(models, args) -> int:
+def _run_lint(models, args, config) -> int:
     multi = len(models) > 1
+    src = "<stdin>" if args.file == "-" else args.file
+
+    # First pass: compute findings per statement (already config-filtered).
+    per_stmt = [lint(model, config) for model in models]
+
+    # --write-baseline: snapshot current findings and exit (no gating).
+    if args.write_baseline:
+        fps = [fingerprint(src, f) for findings in per_stmt for f in findings]
+        write_baseline(args.write_baseline, fps)
+        print(f"wrote baseline with {len(set(fps))} finding(s) to {args.write_baseline}")
+        return 0
+
+    suppress = load_baseline(args.baseline) if args.baseline else set()
+
     all_findings = []
-    for i, model in enumerate(models, 1):
-        findings = lint(model)
+    suppressed = 0
+    for i, (model, findings) in enumerate(zip(models, per_stmt), 1):
+        if suppress:
+            kept = [f for f in findings if fingerprint(src, f) not in suppress]
+            suppressed += len(findings) - len(kept)
+            findings = kept
         all_findings.extend(findings)
         if multi:
             print(f"### Statement {i} — {model.statement_kind}")
@@ -72,10 +91,13 @@ def _run_lint(models, args) -> int:
             print()
 
     counts = {s: sum(1 for f in all_findings if f.severity == s) for s in ("high", "medium", "low")}
-    print(
+    summary = (
         f"{len(all_findings)} finding(s): "
         f"{counts['high']} high, {counts['medium']} medium, {counts['low']} low"
     )
+    if suppressed:
+        summary += f" ({suppressed} baselined)"
+    print(summary)
     if args.fail_on and meets_threshold(all_findings, args.fail_on):
         return 1
     return 0
@@ -188,6 +210,22 @@ def main(argv: list[str] | None = None) -> int:
         "Mermaid for a fully offline page)",
     )
     parser.add_argument(
+        "--config",
+        default=None,
+        help="path to .sqlucent.toml (default: auto-discover near the file/cwd)",
+    )
+    parser.add_argument(
+        "--baseline",
+        default=None,
+        help="with --lint, suppress findings recorded in this baseline JSON",
+    )
+    parser.add_argument(
+        "--write-baseline",
+        default=None,
+        metavar="PATH",
+        help="with --lint, write current findings to PATH as a baseline and exit",
+    )
+    parser.add_argument(
         "--fail-on",
         choices=("low", "medium", "high"),
         default=None,
@@ -230,7 +268,9 @@ def main(argv: list[str] | None = None) -> int:
         return 1
 
     if args.lint:
-        return _run_lint(models, args)
+        start = "." if args.file == "-" else os.path.dirname(os.path.abspath(args.file))
+        config = load_config(args.config, start=start)
+        return _run_lint(models, args, config)
     if args.lineage:
         return _run_lineage(models, args)
     if args.json:

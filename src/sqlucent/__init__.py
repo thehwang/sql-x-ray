@@ -12,6 +12,7 @@ from .htmlout import to_html
 from .walkthrough import walkthrough
 from .narrate import narrate, build_factsheet, NarrationUnavailable
 from .lint import lint, Finding, max_severity, meets_threshold
+from .config import Config, load_config, find_config
 from .lineage import column_lineage, ColumnLineage
 from .schema import build_schema_from_ddl, load_schema
 from .project import analyze_project, project_mermaid, project_summary, ProjectGraph
@@ -40,6 +41,9 @@ __all__ = [
     "lint",
     "Finding",
     "max_severity",
+    "Config",
+    "load_config",
+    "find_config",
     "meets_threshold",
     "column_lineage",
     "ColumnLineage",

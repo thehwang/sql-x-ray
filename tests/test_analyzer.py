@@ -16,6 +16,7 @@ from sqlucent import (
     to_mermaid,
     walkthrough,
 )
+from sqlucent import Config, load_config
 from sqlucent.preprocess import strip_templating
 
 EXAMPLE = Path(__file__).resolve().parents[1] / "examples" / "top_users.sql"
@@ -299,6 +300,50 @@ def test_lint_flags_update_without_where():
     assert any(f.rule == "full-table-write" and f.severity == "high" for f in findings)
     # A scoped UPDATE is clean.
     assert lint(analyze(UPDATE_FROM_SQL, dialect="bigquery")) == []
+
+
+# --- config: disable / severity override / cost partition rule ---
+
+PART_CFG = Config(partitions={"events": "event_date"})
+
+
+def test_partition_filter_missing_fires_without_filter():
+    model = analyze("SELECT user_id FROM events", dialect="bigquery")
+    findings = lint(model, PART_CFG)
+    assert any(f.rule == "partition-filter-missing" and f.severity == "high" for f in findings)
+
+
+def test_partition_filter_present_is_clean():
+    model = analyze(
+        "SELECT user_id FROM events WHERE event_date = '2026-01-01'", dialect="bigquery"
+    )
+    findings = lint(model, PART_CFG)
+    assert not any(f.rule == "partition-filter-missing" for f in findings)
+
+
+def test_partition_rule_silent_without_config():
+    model = analyze("SELECT user_id FROM events", dialect="bigquery")
+    assert not any(f.rule == "partition-filter-missing" for f in lint(model))
+
+
+def test_config_disable_and_severity_override():
+    sql = "SELECT * FROM users CROSS JOIN orders"
+    base = lint(analyze(sql, dialect="bigquery"))
+    assert any(f.rule == "select-star" for f in base)
+    cfg = Config(disabled={"cartesian-join"}, severity={"select-star": "low"})
+    tuned = lint(analyze(sql, dialect="bigquery"), cfg)
+    assert not any(f.rule == "cartesian-join" for f in tuned)
+    assert all(f.severity == "low" for f in tuned if f.rule == "select-star")
+
+
+def test_load_config_from_toml(tmp_path):
+    (tmp_path / ".sqlucent.toml").write_text(
+        "[rules]\ndisable = ['select-star']\n[cost.partitions]\nevents = 'event_date'\n",
+        encoding="utf-8",
+    )
+    cfg = load_config(start=tmp_path)
+    assert "select-star" in cfg.disabled
+    assert cfg.partitions == {"events": "event_date"}
 
 
 # --- schema binding: precise SELECT * lineage ---

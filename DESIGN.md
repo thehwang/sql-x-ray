@@ -229,8 +229,18 @@ than MVP speed — but we'd be reimplementing lineage that sqlglot gives for fre
   `SELECT *`, with the tables they write. Backed by per-statement records retained
   on `ProjectGraph`. Verified on a real repo (`dim_campaign` → 30 direct / 47
   transitive downstream).
+- **v0.2.0 (BigQuery cost lint + config, done)** — `.sqlucent.toml` (auto-discovered
+  from the file's directory upward, or `--config PATH`) tunes the linter without
+  code changes: `[rules] disable`, `[rules.severity]` overrides, and
+  `[cost.partitions]` declaring partitioned tables → partition columns. New rule
+  `partition-filter-missing` (high) fires when a declared partitioned table is
+  scanned with no `WHERE` filter on its partition column (full-table scan = $$$ in
+  BigQuery); it stays silent unless the table is declared, so no false positives.
+  A **baseline** workflow (`--write-baseline` to snapshot, `--baseline` to suppress)
+  grandfathers existing findings so teams can gate only *new* issues in CI.
+  `tomli` is a dependency only on Python < 3.11 (stdlib `tomllib` otherwise).
 - **v0.5+** — VS Code extension (right-click "explain this"); dbt/warehouse schema
-  auto-discovery; semantic SQL diff; BigQuery cost lint.
+  auto-discovery; semantic SQL diff; bytes-scanned estimates from schema.
 
 Distribution mirrors `pq`: brew tap, releases, good `--help`, a tutorial doc.
 
