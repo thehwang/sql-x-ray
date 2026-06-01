@@ -2,12 +2,14 @@ from pathlib import Path
 
 from sqlucent import (
     analyze,
+    analyze_project,
     analyze_script,
     build_factsheet,
     build_schema_from_ddl,
     column_lineage,
     lint,
     meets_threshold,
+    project_mermaid,
     to_html,
     to_mermaid,
     walkthrough,
@@ -326,6 +328,40 @@ def test_select_star_traceable_with_schema():
     assert rows["name"] == ["users.name"]
     assert rows["amount"] == ["orders.amount"]
     assert rows["email"] == ["users.email"]
+
+
+# --- project-level (cross-file) table lineage ---
+
+
+def _write_pipeline(tmp_path):
+    (tmp_path / "a.sql").write_text(
+        "CREATE TABLE stg_orders AS SELECT * FROM raw_orders WHERE status='paid';"
+    )
+    (tmp_path / "b.sql").write_text(
+        "INSERT INTO fact_rev SELECT o.id, u.name FROM stg_orders o "
+        "JOIN dim_users u ON o.uid = u.id;"
+    )
+    return tmp_path
+
+
+def test_analyze_project_builds_cross_file_dag(tmp_path):
+    graph = analyze_project(_write_pipeline(tmp_path), dialect="bigquery")
+    edges = {(e.src, e.dst) for e in graph.edges}
+    assert ("raw_orders", "stg_orders") in edges
+    assert ("stg_orders", "fact_rev") in edges  # edge spans two files
+    assert ("dim_users", "fact_rev") in edges
+    assert "raw_orders" in graph.roots()
+    assert "fact_rev" in graph.sinks()
+    assert "stg_orders" in graph.intermediate()
+
+
+def test_project_mermaid_renders_nodes_and_edges(tmp_path):
+    graph = analyze_project(_write_pipeline(tmp_path), dialect="bigquery")
+    mermaid = project_mermaid(graph)
+    assert mermaid.startswith("flowchart LR")
+    assert 't_raw_orders[("raw_orders")]' in mermaid  # root = cylinder
+    assert 't_fact_rev(["fact_rev"])' in mermaid  # sink = rounded
+    assert "t_stg_orders --> t_fact_rev" in mermaid
 
 
 def test_html_localization():

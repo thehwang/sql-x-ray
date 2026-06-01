@@ -14,6 +14,7 @@ from .narrate import narrate, build_factsheet, NarrationUnavailable
 from .lint import lint, Finding, max_severity, meets_threshold
 from .lineage import column_lineage, ColumnLineage
 from .schema import build_schema_from_ddl, load_schema
+from .project import analyze_project, project_mermaid, project_summary, ProjectGraph
 
 __version__ = "0.1.0"
 
@@ -37,5 +38,9 @@ __all__ = [
     "ColumnLineage",
     "build_schema_from_ddl",
     "load_schema",
+    "analyze_project",
+    "project_mermaid",
+    "project_summary",
+    "ProjectGraph",
     "__version__",
 ]

@@ -73,6 +73,7 @@ sqlucent query.sql --lint                  # risk checks
 sqlucent query.sql --lint --fail-on high   # CI gate: exit non-zero on a high finding
 cat query.sql | sqlucent -                 # read from stdin
 sqlucent query.sql --dialect postgres      # other dialects
+sqlucent ./sql/                            # cross-file table lineage for a whole folder
 ```
 
 The Mermaid output renders directly on GitHub, in Markdown, and in Notion.
@@ -124,6 +125,24 @@ sqlucent "SELECT * FROM users u JOIN orders o ON u.user_id=o.user_id" \
 
 With a schema, `SELECT *` is expanded into its real columns and each is traced to
 its base table (aliases are resolved back to table names).
+
+### Project-level table lineage (point at a folder)
+
+Give `sqlucent` a **directory** and it scans every `.sql` file and builds a
+cross-file, table-level data-flow DAG — which tables feed which, across an entire
+Airflow/dbt SQL repo, no warehouse connection needed:
+
+```bash
+sqlucent ./sql/                 # summary + Mermaid table DAG
+sqlucent ./sql/ --mermaid       # just the diagram
+sqlucent ./sql/ --json          # edges/roots/sinks for tooling
+```
+
+It classifies each table as a **source input** (read but never written),
+**intermediate** (both), or **terminal output** (written but never read), so you
+instantly see the roots and leaves of your pipeline. Edges are derived per
+statement (a statement's source tables → its write target) across `INSERT`,
+`CREATE`, `UPDATE`, `MERGE`, and `DELETE`.
 
 ### Risk lint (`--lint`)
 

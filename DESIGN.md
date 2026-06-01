@@ -214,8 +214,16 @@ than MVP speed — but we'd be reimplementing lineage that sqlglot gives for fre
   each to its base table (table aliases are resolved back to table names). Without a
   schema, `*` is still reported as untraceable-by-name. README now carries a live
   Mermaid demo plus an interactive-HTML screenshot (`docs/demo-html.png`).
+- **v0.2.0 (project-level table lineage, done)** — point `sqlucent` at a *directory*
+  and it scans every `.sql` file and builds a cross-file table-level DAG. Edges are
+  derived per statement (source tables → write target) across INSERT/CREATE/UPDATE/
+  MERGE/DELETE, then merged project-wide. Tables are classified as source inputs
+  (read-only), intermediate, or terminal outputs (write-only). Outputs: summary +
+  Mermaid (`flowchart LR`), or `--json` for tooling. One bad file degrades to a
+  recorded parse error instead of failing the scan. Verified on a 100+ file corpus
+  (200+ tables, 400+ edges, 0 errors). sqlglot's fallback warnings are silenced.
 - **v0.5+** — VS Code extension (right-click "explain this"); dbt/warehouse schema
-  auto-discovery; publish to PyPI.
+  auto-discovery; semantic SQL diff; impact analysis; BigQuery cost lint.
 
 Distribution mirrors `pq`: brew tap, releases, good `--help`, a tutorial doc.
 

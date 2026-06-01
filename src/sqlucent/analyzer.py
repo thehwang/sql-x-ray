@@ -5,12 +5,18 @@ scope to extract sources and operations. No guessing, no LLM.
 """
 from __future__ import annotations
 
+import logging
+
 import sqlglot
 from sqlglot import exp
 from sqlglot.errors import ErrorLevel
 
 from .ir import Operation, QueryNode, SqlModel
 from .preprocess import has_templating, strip_templating
+
+# We parse with ErrorLevel.IGNORE on purpose (unsupported statements degrade to
+# UNSUPPORTED), so sqlglot's "falling back to Command" warnings are just noise.
+logging.getLogger("sqlglot").setLevel(logging.ERROR)
 
 _MAX_DETAIL = 120
 

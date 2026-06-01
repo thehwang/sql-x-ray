@@ -7,6 +7,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 import sys
 
 from . import __version__
@@ -15,6 +16,7 @@ from .graph import to_mermaid
 from .htmlout import to_html
 from .lineage import column_lineage
 from .lint import lint, meets_threshold
+from .project import analyze_project, project_mermaid, project_summary
 from .schema import load_schema
 from .narrate import DEFAULT_LANG, DEFAULT_MODEL, NarrationUnavailable, narrate
 from .walkthrough import walkthrough
@@ -25,6 +27,25 @@ def _read_sql(path: str) -> str:
         return sys.stdin.read()
     with open(path, "r", encoding="utf-8") as fh:
         return fh.read()
+
+
+def _run_project(args) -> int:
+    graph = analyze_project(args.file, dialect=args.dialect)
+    if not graph.files:
+        print(f"error: no .sql files under {args.file!r}", file=sys.stderr)
+        return 1
+    if args.json:
+        print(json.dumps(graph.to_dict(), indent=2))
+        return 0
+    if args.mermaid:
+        print(project_mermaid(graph))
+        return 0
+    print(project_summary(graph))
+    print("\nTable data-flow (Mermaid)\n-------------------------")
+    print("```mermaid")
+    print(project_mermaid(graph))
+    print("```")
+    return 0
 
 
 _SEV_ICON = {"high": "✗", "medium": "⚠", "low": "·"}
@@ -99,7 +120,10 @@ def main(argv: list[str] | None = None) -> int:
         prog="sqlucent",
         description="See through any SQL: data-flow graph + plain-language walkthrough.",
     )
-    parser.add_argument("file", help="path to a .sql file, or '-' to read stdin")
+    parser.add_argument(
+        "file",
+        help="a .sql file, '-' for stdin, or a DIRECTORY for cross-file table lineage",
+    )
     parser.add_argument(
         "--dialect", default="bigquery", help="SQL dialect (default: bigquery)"
     )
@@ -174,6 +198,10 @@ def main(argv: list[str] | None = None) -> int:
     )
     parser.add_argument("--version", action="version", version=f"sqlucent {__version__}")
     args = parser.parse_args(argv)
+
+    # Directory input → project-level (cross-file) table lineage.
+    if args.file != "-" and os.path.isdir(args.file):
+        return _run_project(args)
 
     try:
         sql = _read_sql(args.file)
