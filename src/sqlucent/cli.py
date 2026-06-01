@@ -17,6 +17,7 @@ from .htmlout import to_html
 from .lineage import column_lineage
 from .lint import lint, meets_threshold
 from .project import analyze_project, project_mermaid, project_summary
+from .impact import impact_report
 from .schema import load_schema
 from .narrate import DEFAULT_LANG, DEFAULT_MODEL, NarrationUnavailable, narrate
 from .walkthrough import walkthrough
@@ -34,6 +35,9 @@ def _run_project(args) -> int:
     if not graph.files:
         print(f"error: no .sql files under {args.file!r}", file=sys.stderr)
         return 1
+    if args.impact:
+        print(impact_report(graph, args.impact))
+        return 0
     if args.json:
         print(json.dumps(graph.to_dict(), indent=2))
         return 0
@@ -195,6 +199,12 @@ def main(argv: list[str] | None = None) -> int:
         default=None,
         help="with --lineage, a DDL (.sql CREATE TABLE) or .json schema file so "
         "SELECT * expands into real columns and lineage is precise",
+    )
+    parser.add_argument(
+        "--impact",
+        metavar="TABLE[.COLUMN]",
+        default=None,
+        help="with a directory, show the blast radius if TABLE (or TABLE.COLUMN) changes",
     )
     parser.add_argument("--version", action="version", version=f"sqlucent {__version__}")
     args = parser.parse_args(argv)

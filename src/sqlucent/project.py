@@ -30,6 +30,18 @@ class Edge:
 
 
 @dataclass
+class StatementRef:
+    """A single write statement, retained so impact analysis can inspect it
+    (e.g. which columns it references) without re-parsing the project."""
+
+    file: str
+    kind: str
+    target: str | None
+    reads: list[str] = field(default_factory=list)
+    sql: str = ""
+
+
+@dataclass
 class FileSummary:
     path: str
     reads: list[str] = field(default_factory=list)
@@ -42,6 +54,7 @@ class ProjectGraph:
     edges: list[Edge] = field(default_factory=list)
     files: list[FileSummary] = field(default_factory=list)
     tables: list[str] = field(default_factory=list)
+    statements: list[StatementRef] = field(default_factory=list)
 
     @property
     def written(self) -> set[str]:
@@ -100,6 +113,7 @@ def analyze_project(
     edge_index: dict[tuple[str, str], Edge] = {}
     summaries: list[FileSummary] = []
     table_set: set[str] = set()
+    statements: list[StatementRef] = []
 
     for path in files:
         rel = str(path.relative_to(root)) if root.is_dir() else path.name
@@ -113,6 +127,16 @@ def analyze_project(
 
         for model in models:
             reads, target = _model_reads_writes(model)
+            if target or reads:
+                statements.append(
+                    StatementRef(
+                        file=rel,
+                        kind=model.statement_kind,
+                        target=target,
+                        reads=sorted(reads),
+                        sql=model.statement_sql,
+                    )
+                )
             for r in reads:
                 table_set.add(r)
                 if r not in summary.reads:
@@ -134,7 +158,9 @@ def analyze_project(
         summaries.append(summary)
 
     edges = sorted(edge_index.values(), key=lambda e: (e.src, e.dst))
-    return ProjectGraph(edges=edges, files=summaries, tables=sorted(table_set))
+    return ProjectGraph(
+        edges=edges, files=summaries, tables=sorted(table_set), statements=statements
+    )
 
 
 def _safe_id(name: str) -> str:

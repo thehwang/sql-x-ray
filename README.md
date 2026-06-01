@@ -144,6 +144,17 @@ instantly see the roots and leaves of your pipeline. Edges are derived per
 statement (a statement's source tables → its write target) across `INSERT`,
 `CREATE`, `UPDATE`, `MERGE`, and `DELETE`.
 
+**Impact analysis** — "if I change this, what breaks?" — walks that DAG:
+
+```bash
+sqlucent ./sql/ --impact dim_users          # tables downstream of dim_users
+sqlucent ./sql/ --impact dim_users.email     # writes that read dim_users.email (best-effort)
+```
+
+Table impact is exact (direct consumers + full transitive downstream, with the
+first-hop files). Column impact is best-effort without a schema: it flags writes
+that reference the column explicitly or pull it via `SELECT *`.
+
 ### Risk lint (`--lint`)
 
 Deterministic anti-pattern checks over the AST — no LLM, so findings are stable

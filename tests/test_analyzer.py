@@ -6,7 +6,9 @@ from sqlucent import (
     analyze_script,
     build_factsheet,
     build_schema_from_ddl,
+    column_impact,
     column_lineage,
+    downstream_tables,
     lint,
     meets_threshold,
     project_mermaid,
@@ -362,6 +364,30 @@ def test_project_mermaid_renders_nodes_and_edges(tmp_path):
     assert 't_raw_orders[("raw_orders")]' in mermaid  # root = cylinder
     assert 't_fact_rev(["fact_rev"])' in mermaid  # sink = rounded
     assert "t_stg_orders --> t_fact_rev" in mermaid
+
+
+def test_impact_downstream_is_transitive(tmp_path):
+    graph = analyze_project(_write_pipeline(tmp_path), dialect="bigquery")
+    # raw_orders -> stg_orders -> fact_rev : transitive must include both.
+    down = downstream_tables(graph, "raw_orders")
+    assert "stg_orders" in down
+    assert "fact_rev" in down
+    # A leaf has no downstream.
+    assert downstream_tables(graph, "fact_rev") == []
+
+
+def test_column_impact_finds_referencing_writes(tmp_path):
+    (tmp_path / "a.sql").write_text(
+        "CREATE TABLE stg AS SELECT id, amount, status FROM raw;"
+    )
+    (tmp_path / "b.sql").write_text(
+        "INSERT INTO rollup SELECT id, SUM(amount) AS total FROM stg GROUP BY id;"
+    )
+    graph = analyze_project(tmp_path, dialect="bigquery")
+    hits = column_impact(graph, "stg", "amount")
+    assert any(h.target == "rollup" and h.how == "explicit" for h in hits)
+    # A column nobody references downstream has no hits.
+    assert column_impact(graph, "stg", "status") == []
 
 
 def test_html_localization():

@@ -222,8 +222,15 @@ than MVP speed — but we'd be reimplementing lineage that sqlglot gives for fre
   Mermaid (`flowchart LR`), or `--json` for tooling. One bad file degrades to a
   recorded parse error instead of failing the scan. Verified on a 100+ file corpus
   (200+ tables, 400+ edges, 0 errors). sqlglot's fallback warnings are silenced.
+- **v0.2.0 (impact analysis, done)** — `--impact TABLE` walks the project DAG for the
+  exact blast radius: direct consumers + full transitive downstream, plus the
+  first-hop files. `--impact TABLE.COLUMN` is best-effort (no schema): write
+  statements that read the table and reference the column explicitly or via
+  `SELECT *`, with the tables they write. Backed by per-statement records retained
+  on `ProjectGraph`. Verified on a real repo (`dim_campaign` → 30 direct / 47
+  transitive downstream).
 - **v0.5+** — VS Code extension (right-click "explain this"); dbt/warehouse schema
-  auto-discovery; semantic SQL diff; impact analysis; BigQuery cost lint.
+  auto-discovery; semantic SQL diff; BigQuery cost lint.
 
 Distribution mirrors `pq`: brew tap, releases, good `--help`, a tutorial doc.
 
