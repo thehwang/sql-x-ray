@@ -25,7 +25,7 @@ DEFAULT_LANG = os.environ.get("SXR_LANG") or None
 _DETAIL_CAP = 200
 
 _SYSTEM = (
-    "You are SQL X-Ray, a tool that explains SQL in plain English for engineers. "
+    "You are SQLucent, a tool that explains SQL in plain English for engineers. "
     "You are given a STRUCTURED, ALREADY-PARSED summary of one SQL statement.\n\n"
     "STRICT RULES:\n"
     "- Use ONLY the facts provided. NEVER invent table names, column names, or "

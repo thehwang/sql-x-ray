@@ -1,6 +1,6 @@
 from pathlib import Path
 
-from sql_x_ray import (
+from sqlucent import (
     analyze,
     analyze_script,
     build_factsheet,
@@ -12,7 +12,7 @@ from sql_x_ray import (
     to_mermaid,
     walkthrough,
 )
-from sql_x_ray.preprocess import strip_templating
+from sqlucent.preprocess import strip_templating
 
 EXAMPLE = Path(__file__).resolve().parents[1] / "examples" / "top_users.sql"
 

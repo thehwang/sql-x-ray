@@ -1,4 +1,4 @@
-"""SQL X-Ray — see through any SQL.
+"""SQLucent — see through any SQL.
 
 Public API:
     analyze(sql, dialect="bigquery") -> SqlModel

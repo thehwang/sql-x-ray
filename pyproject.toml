@@ -3,7 +3,7 @@ requires = ["setuptools>=68"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "sql-x-ray"
+name = "sqlucent"
 version = "0.1.0"
 description = "See through any SQL: data-flow diagram, CTE responsibilities, and a plain-language walkthrough — without running the query."
 readme = "README.md"
@@ -34,8 +34,8 @@ Repository = "https://github.com/thehwang/sql-x-ray"
 Issues = "https://github.com/thehwang/sql-x-ray/issues"
 
 [project.scripts]
-sqlx-ray = "sql_x_ray.cli:main"
-sxr = "sql_x_ray.cli:main"
+sqlucent = "sqlucent.cli:main"
+sxr = "sqlucent.cli:main"
 
 [project.optional-dependencies]
 dev = ["pytest>=8.0"]
@@ -44,4 +44,4 @@ dev = ["pytest>=8.0"]
 where = ["src"]
 
 [tool.setuptools.package-data]
-sql_x_ray = ["vendor/*.js"]
+sqlucent = ["vendor/*.js"]

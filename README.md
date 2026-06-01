@@ -1,4 +1,4 @@
-# SQL X-Ray
+# SQLucent
 
 [![CI](https://github.com/thehwang/sql-x-ray/actions/workflows/ci.yml/badge.svg)](https://github.com/thehwang/sql-x-ray/actions/workflows/ci.yml)
 [![Python](https://img.shields.io/badge/python-3.10%2B-blue)](https://www.python.org/)
@@ -8,7 +8,7 @@
 > diagram, per-CTE responsibilities, and a plain-language walkthrough — **without
 > running the query**.
 
-`EXPLAIN` tells you how the database *runs* a query. SQL X-Ray tells you what the
+`EXPLAIN` tells you how the database *runs* a query. SQLucent tells you what the
 query *means*: where data comes from, how it flows through each CTE, and what
 each step does. It really parses the SQL (via [sqlglot](https://github.com/tobymao/sqlglot)),
 so the structure and diagram are trustworthy — an LLM is only used (later) to
@@ -23,7 +23,7 @@ the full design and roadmap.
 ## Demo
 
 Given a nested-CTE query ([`examples/top_users.sql`](examples/top_users.sql)),
-`sqlx-ray query.sql --mermaid` produces this data-flow graph (rendered live on
+`sqlucent query.sql --mermaid` produces this data-flow graph (rendered live on
 GitHub):
 
 ```mermaid
@@ -46,7 +46,7 @@ flowchart TD
 `--html` turns the same graph into a self-contained interactive page: click any
 node to highlight it and inspect that node's SQL, sources, operations, and outputs.
 
-![SQL X-Ray interactive HTML](docs/demo-html.png)
+![SQLucent interactive HTML](docs/demo-html.png)
 
 ## Install (dev)
 
@@ -57,22 +57,22 @@ pip install -e ".[dev]"
 
 ## Usage
 
-Two commands are installed: `sqlx-ray` and the short alias `sxr` (identical).
+Two commands are installed: `sqlucent` and the short alias `sxr` (identical).
 
 ```bash
-sxr examples/top_users.sql                 # short alias for sqlx-ray
-sqlx-ray examples/top_users.sql            # walkthrough + Mermaid graph
-sqlx-ray query.sql --mermaid               # just the diagram
-sqlx-ray query.sql --walkthrough           # just the steps
-sqlx-ray query.sql --verbose               # full join ON clauses + column lists
-sqlx-ray query.sql --json                  # the IR, for tooling/CI
-sqlx-ray query.sql --html > xray.html      # self-contained interactive page
-sqlx-ray query.sql --lineage               # column-level lineage (all outputs)
-sqlx-ray query.sql --lineage total         # lineage for one output column
-sqlx-ray query.sql --lint                  # risk checks
-sqlx-ray query.sql --lint --fail-on high   # CI gate: exit non-zero on a high finding
-cat query.sql | sqlx-ray -                 # read from stdin
-sqlx-ray query.sql --dialect postgres      # other dialects
+sxr examples/top_users.sql                 # short alias for sqlucent
+sqlucent examples/top_users.sql            # walkthrough + Mermaid graph
+sqlucent query.sql --mermaid               # just the diagram
+sqlucent query.sql --walkthrough           # just the steps
+sqlucent query.sql --verbose               # full join ON clauses + column lists
+sqlucent query.sql --json                  # the IR, for tooling/CI
+sqlucent query.sql --html > xray.html      # self-contained interactive page
+sqlucent query.sql --lineage               # column-level lineage (all outputs)
+sqlucent query.sql --lineage total         # lineage for one output column
+sqlucent query.sql --lint                  # risk checks
+sqlucent query.sql --lint --fail-on high   # CI gate: exit non-zero on a high finding
+cat query.sql | sqlucent -                 # read from stdin
+sqlucent query.sql --dialect postgres      # other dialects
 ```
 
 The Mermaid output renders directly on GitHub, in Markdown, and in Notion.
@@ -88,9 +88,9 @@ plane, archive it, email it. That makes the file ~3 MB. Use `--cdn` to load
 Mermaid from a CDN instead for a tiny (~8 KB) file that needs network to view.
 
 ```bash
-sqlx-ray query.sql --html > xray.html && open xray.html   # offline, ~3 MB
-sqlx-ray query.sql --html --cdn > xray.html               # tiny, needs network
-sqlx-ray query.sql --html --lang Chinese > xray.html      # localized UI chrome
+sqlucent query.sql --html > xray.html && open xray.html   # offline, ~3 MB
+sqlucent query.sql --html --cdn > xray.html               # tiny, needs network
+sqlucent query.sql --html --lang Chinese > xray.html      # localized UI chrome
 ```
 
 `--lang` localizes the page's UI labels (English and Chinese built in; unknown
@@ -103,7 +103,7 @@ through every CTE and subquery (powered by sqlglot's lineage engine — no schem
 required for explicit column references):
 
 ```bash
-sqlx-ray examples/top_users.sql --lineage
+sqlucent examples/top_users.sql --lineage
 #   user_id     ←  orders.user_id
 #   total       ←  orders.amount
 #   last_login  ←  events.login_at
@@ -114,7 +114,7 @@ expressions can't be resolved by name **unless you supply a schema**:
 
 ```bash
 # --schema takes DDL (CREATE TABLE ...) or a {table: {column: type}} JSON file.
-sqlx-ray "SELECT * FROM users u JOIN orders o ON u.user_id=o.user_id" \
+sqlucent "SELECT * FROM users u JOIN orders o ON u.user_id=o.user_id" \
   --lineage --schema examples/schema.sql
 #   name    ←  users.name
 #   email   ←  users.email
@@ -139,8 +139,8 @@ and CI-friendly:
 | `distinct-with-group-by` | low | redundant `DISTINCT` alongside `GROUP BY` |
 
 ```bash
-sqlx-ray query.sql --lint                  # report findings
-sqlx-ray query.sql --lint --fail-on high   # exit 1 if any finding ≥ high (CI gate)
+sqlucent query.sql --lint                  # report findings
+sqlucent query.sql --lint --fail-on high   # exit 1 if any finding ≥ high (CI gate)
 ```
 
 ### Plain-language narration (local LLM, optional)
@@ -152,9 +152,9 @@ columns — so the explanation stays grounded. If Ollama isn't running or the mo
 isn't pulled, it falls back to the template walkthrough.
 
 ```bash
-sqlx-ray query.sql --narrate                      # default model (llama3.2)
-sqlx-ray query.sql --narrate --model qwen2.5:3b   # pick a model
-sqlx-ray query.sql --lang Chinese                 # narrate in any language (implies --narrate)
+sqlucent query.sql --narrate                      # default model (llama3.2)
+sqlucent query.sql --narrate --model qwen2.5:3b   # pick a model
+sqlucent query.sql --lang Chinese                 # narrate in any language (implies --narrate)
 export SXR_OLLAMA_MODEL=qwen2.5:3b                 # or set a default model
 export SXR_LANG=Chinese                            # or set a default language
 ```
@@ -181,8 +181,8 @@ secret. One-time setup on PyPI, then every GitHub Release publishes automaticall
 
 1. On [pypi.org](https://pypi.org) → your account → *Publishing* → add a
    **pending trusted publisher**:
-   - PyPI Project Name: `sql-x-ray`
-   - Owner: `thehwang`, Repository: `sql-x-ray`
+   - PyPI Project Name: `sqlucent`
+   - Owner: `thehwang`, Repository: `sql-x-ray` (the GitHub repo name is unchanged)
    - Workflow name: `publish.yml`
    - Environment name: `pypi`
 2. In the GitHub repo, create an environment named `pypi`

@@ -1,4 +1,4 @@
-"""SQL X-Ray command-line interface.
+"""SQLucent command-line interface.
 
 Default (no flags): print the walkthrough followed by a Mermaid data-flow graph.
 Use --json for tooling/CI, or --mermaid / --walkthrough to print just one section.
@@ -96,7 +96,7 @@ def _walkthrough_text(model, args) -> str:
 
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(
-        prog="sqlx-ray",
+        prog="sqlucent",
         description="See through any SQL: data-flow graph + plain-language walkthrough.",
     )
     parser.add_argument("file", help="path to a .sql file, or '-' to read stdin")
@@ -172,7 +172,7 @@ def main(argv: list[str] | None = None) -> int:
         help="with --lineage, a DDL (.sql CREATE TABLE) or .json schema file so "
         "SELECT * expands into real columns and lineage is precise",
     )
-    parser.add_argument("--version", action="version", version=f"sql-x-ray {__version__}")
+    parser.add_argument("--version", action="version", version=f"sqlucent {__version__}")
     args = parser.parse_args(argv)
 
     try:
@@ -202,7 +202,7 @@ def main(argv: list[str] | None = None) -> int:
         print(
             to_html(
                 models,
-                title=f"SQL X-Ray — {args.file}",
+                title=f"SQLucent — {args.file}",
                 lang=args.lang,
                 inline=not args.cdn,
             )
@@ -215,7 +215,7 @@ def main(argv: list[str] | None = None) -> int:
         print("\n\n".join(_walkthrough_text(m, args) for m in models))
         return 0
 
-    print("SQL X-Ray\n" + "=" * 40)
+    print("SQLucent\n" + "=" * 40)
     multi = len(models) > 1
     for i, model in enumerate(models, 1):
         if multi:

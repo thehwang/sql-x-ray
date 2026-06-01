@@ -1,11 +1,11 @@
-# SQL X-Ray — Design Doc (v0 draft, for review)
+# SQLucent — Design Doc (v0 draft, for review)
 
 > See through any SQL. Paste a gnarly nested-CTE query and get back an X-ray:
 > a data-flow diagram, per-CTE responsibilities, column-level lineage, a
 > plain-language walkthrough, and risk hints — **without running the query**.
 
 **Status:** v0.1 in progress. Decisions locked (see §0).
-**Display name:** SQL X-Ray · **repo/package name:** `sql-x-ray` (CLI binary: `sqlx-ray`, short alias `sxr`).
+**Display name:** SQLucent · **PyPI/import name:** `sqlucent` · **GitHub repo:** `sql-x-ray` (CLI binary: `sqlucent`, short alias `sxr`).
 
 ---
 
@@ -33,7 +33,7 @@ data flow through it?"*:
 | dbt docs / lineage tools | lineage **between tables/models** | doesn't explain logic **inside** one query; needs whole-project setup |
 | Ask ChatGPT directly | rough gist | **misses tables, invents joins, untrustworthy on long SQL** — it never truly parses |
 
-**SQL X-Ray's wedge** = *parser-guaranteed structure* + *data-flow diagram* +
+**SQLucent's wedge** = *parser-guaranteed structure* + *data-flow diagram* +
 *plain-language narration* + *risk lint*, all from a single query, no project wiring.
 
 ---
@@ -96,9 +96,9 @@ Two kinds of output → two natural homes. We do **not** pick one; we layer:
 ```
 
 - **CLI is the primary entry** (matches the `pq` single-binary, terminal-first DNA).
-  - `sqlx-ray q.sql` → walkthrough + risks + **Mermaid** (renders for free on
+  - `sqlucent q.sql` → walkthrough + risks + **Mermaid** (renders for free on
     GitHub/Notion/Markdown → zero-cost visualization).
-  - `sqlx-ray q.sql --json` → for CI / other tooling; exit non-zero on risk gate.
+  - `sqlucent q.sql --json` → for CI / other tooling; exit non-zero on risk gate.
 - **`--html` emits a self-contained HTML file** (NOT a web server): interactive
   data-flow graph with bidirectional highlight (click a node → highlight its SQL).
   Shareable, no hosting, no backend. This is the "UI-grade" payoff without the
@@ -155,7 +155,7 @@ than MVP speed — but we'd be reimplementing lineage that sqlglot gives for fre
 
 ## 7. Roadmap
 
-- **v0.1 (MVP)** — Path A. `sqlx-ray q.sql` → parse via sqlglot → IR → data-flow
+- **v0.1 (MVP)** — Path A. `sqlucent q.sql` → parse via sqlglot → IR → data-flow
   graph (Mermaid) + template-based step walkthrough. CTE responsibility ID.
   **Zero LLM, zero schema required.** This alone beats `git blame`-of-SQL.
 - **v0.1.1 (real-world robustness, done)** — Jinja preprocessing (`{{ }}`/`{% %}`/`{# #}`

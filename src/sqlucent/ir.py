@@ -1,4 +1,4 @@
-"""Semantic model (IR) for SQL X-Ray.
+"""Semantic model (IR) for SQLucent.
 
 The IR is the hub of the pipeline: it is produced once by the analyzer and then
 consumed independently by the graph generator, the walkthrough generator, and
