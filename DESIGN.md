@@ -4,7 +4,7 @@
 > a data-flow diagram, per-CTE responsibilities, column-level lineage, a
 > plain-language walkthrough, and risk hints — **without running the query**.
 
-**Status:** v0.1 in progress. Decisions locked (see §0).
+**Status:** 0.2.0 shipped (full deterministic core; see §7). Decisions locked (see §0).
 **Display name:** SQLucent · **PyPI/import name:** `sqlucent` · **GitHub repo:** `sql-x-ray` (CLI binary: `sqlucent`, short alias `sxr`).
 
 ---
@@ -155,42 +155,54 @@ than MVP speed — but we'd be reimplementing lineage that sqlglot gives for fre
 
 ## 7. Roadmap
 
-- **v0.1 (MVP)** — Path A. `sqlucent q.sql` → parse via sqlglot → IR → data-flow
-  graph (Mermaid) + template-based step walkthrough. CTE responsibility ID.
-  **Zero LLM, zero schema required.** This alone beats `git blame`-of-SQL.
-- **v0.1.1 (real-world robustness, done)** — Jinja preprocessing (`{{ }}`/`{% %}`/`{# #}`
-  → safe placeholders) for Airflow/dbt SQL; multi-statement scripts; INSERT /
+> Headings below are the **released SemVer versions** (as published to PyPI and
+> recorded in [`CHANGELOG.md`](CHANGELOG.md)). Feature work that was tracked under
+> internal milestone labels during development (e.g. "narration", "HTML",
+> "lineage+lint") all landed together in the **0.2.0** release; they are grouped
+> here by feature area, not by those interim labels, so the history matches the
+> versions a user can actually install.
+
+### 0.1.0 — MVP (shipped)
+
+- **Parse → IR → render.** Path A. `sqlucent q.sql` → parse via sqlglot → IR →
+  data-flow graph (Mermaid) + template-based step walkthrough + CTE responsibility
+  ID. **Zero LLM, zero schema required.** This alone beats `git blame`-of-SQL.
+
+### 0.2.0 — full deterministic core (shipped)
+
+Everything below shipped in 0.2.0, grouped by feature area:
+
+- **Real-world robustness.** Jinja preprocessing (`{{ }}`/`{% %}`/`{# #}` → safe
+  placeholders) for Airflow/dbt SQL; multi-statement scripts; INSERT /
   CREATE-TABLE-AS / DELETE handled, with write-target shown as a graph sink.
   Lenient parsing (`ErrorLevel.IGNORE`) degrades unsupported statements (COPY/UNLOAD)
   to `UNSUPPORTED` instead of failing the file; empty `;` statements skipped.
+  Walkthrough collapses wide joins/group-bys and long column lists, with
+  `-v/--verbose` to expand full ON clauses + lists (`Operation` stores full
+  `detail` + a short `brief`; truncation is render-time).
   **Validated on a real corpus: 121/121 datamart SQL files parse without crashing**
   (INSERT 103, DELETE 66, CREATE 34, DROP 30, UPDATE 27, SELECT 27, ...).
-  Known rough edges: (a) **done** — walkthrough now collapses wide joins/group-bys
-  and long column lists, with `-v/--verbose` to expand full ON clauses + lists
-  (`Operation` stores full `detail` + a short `brief`; truncation is render-time);
-  (b) UPDATE/MERGE carry real data flow (source→target) not yet modeled;
-  (c) Jinja inside string literals yields odd placeholder literals (cosmetic).
-- **v0.2 (local LLM narration, done)** — `--narrate/--llm` calls Ollama via the
-  stdlib HTTP API (no new dependency). The LLM only rephrases a deterministic
-  *fact sheet* built from the IR (`build_factsheet`) — it never sees raw SQL and
-  is told never to invent tables/columns, so hallucination stays low. Graceful
-  fallback to the template if Ollama is unreachable or the model isn't pulled.
-  `--model` selects the model (default `llama3.2`, override via `SXR_OLLAMA_MODEL`;
-  verified live on `qwen2.5:3b`). `--lang/--language` (or `SXR_LANG`) makes the
-  model narrate in any language (verified live in Chinese) while keeping SQL
-  identifiers untranslated; it implies `--narrate`. stdin/pipe + `--json` supported.
-- **v0.3 (interactive HTML, done)** — `--html` emits a single self-contained page
-  (no server): Mermaid data-flow diagram with `click node → side panel` showing
-  that node's SQL, sources, operations, and outputs. Per-node SQL captured into
-  the IR (`QueryNode.sql_text`). Verified in-browser on the 15-table datamart load.
+- **Local LLM narration.** `--narrate/--llm` calls Ollama via the stdlib HTTP API
+  (no new dependency). The LLM only rephrases a deterministic *fact sheet* built
+  from the IR (`build_factsheet`) — it never sees raw SQL and is told never to
+  invent tables/columns, so hallucination stays low. Graceful fallback to the
+  template if Ollama is unreachable or the model isn't pulled. `--model` selects
+  the model (default `llama3.2`, override via `SXR_OLLAMA_MODEL`; verified live on
+  `qwen2.5:3b`). `--lang/--language` (or `SXR_LANG`) makes the model narrate in any
+  language (verified live in Chinese) while keeping SQL identifiers untranslated;
+  it implies `--narrate`. stdin/pipe + `--json` supported.
+- **Interactive HTML.** `--html` emits a single self-contained page (no server):
+  Mermaid data-flow diagram with `click node → side panel` showing that node's SQL,
+  sources, operations, and outputs. Per-node SQL captured into the IR
+  (`QueryNode.sql_text`). Verified in-browser on the 15-table datamart load.
   `--lang` localizes the page's UI chrome (English/Chinese built in, extensible;
   unknown languages fall back to English); SQL identifiers are never translated.
   Mermaid is **inlined by default** (vendored UMD build at `vendor/mermaid.min.js`)
   so the page is genuinely offline/no-server/no-CDN (~3 MB); `--cdn` swaps to a
   CDN import for a ~8 KB file. Offline rendering + interactivity verified in-browser
   with zero external requests.
-- **v0.4 (column lineage + risk lint, done)** — `--lineage [COLUMN]` traces each
-  final output column back to its source column(s) through every CTE/subquery via
+- **Column lineage + risk lint.** `--lineage [COLUMN]` traces each final output
+  column back to its source column(s) through every CTE/subquery via
   `sqlglot.lineage` (no schema needed for explicit references; `SELECT *` and bare
   expressions reported as unresolvable-by-name). `--lint` runs deterministic
   AST-pattern checks — `cartesian-join` (high; condition-less join between tables,
@@ -201,56 +213,65 @@ than MVP speed — but we'd be reimplementing lineage that sqlglot gives for fre
   to analyze the underlying query. Full statement SQL is captured into the IR
   (`SqlModel.statement_sql`) so lint/lineage re-parse cleanly. Verified clean on the
   example + 121-file corpus and firing on crafted risky SQL.
-- **v0.4.1 (UPDATE/MERGE data flow, done)** — `UPDATE` models its write target as a
-  sink, the `FROM`/correlated tables as sources, and the `SET` assignments as written
-  columns (`output_columns`). `MERGE` turns its `USING` subquery into its own source
-  node (reading the base tables), then the merge node carries the `ON` match key plus
-  one op per `WHEN` branch (`MATCHED → UPDATE`, `NOT MATCHED → INSERT`, etc.) and the
+- **UPDATE/MERGE data flow.** `UPDATE` models its write target as a sink, the
+  `FROM`/correlated tables as sources, and the `SET` assignments as written columns
+  (`output_columns`). `MERGE` turns its `USING` subquery into its own source node
+  (reading the base tables), then the merge node carries the `ON` match key plus one
+  op per `WHEN` branch (`MATCHED → UPDATE`, `NOT MATCHED → INSERT`, etc.) and the
   written columns. New lint rule `full-table-write` (high) flags an `UPDATE`/`DELETE`
   with no `WHERE`. Verified on a real templated MERGE + multiple `UPDATE ... FROM`.
-- **v0.4.2 (schema binding, done)** — `--schema PATH` accepts DDL (`CREATE TABLE`)
-  or a `{table: {column: type}}` JSON file. With a schema, `column_lineage` runs
+- **Schema binding.** `--schema PATH` accepts DDL (`CREATE TABLE`) or a
+  `{table: {column: type}}` JSON file. With a schema, `column_lineage` runs
   sqlglot's `qualify` to expand `SELECT *` into concrete output columns and traces
   each to its base table (table aliases are resolved back to table names). Without a
-  schema, `*` is still reported as untraceable-by-name. README now carries a live
+  schema, `*` is still reported as untraceable-by-name. README carries a live
   Mermaid demo plus an interactive-HTML screenshot (`docs/demo-html.png`).
-- **v0.2.0 (project-level table lineage, done)** — point `sqlucent` at a *directory*
-  and it scans every `.sql` file and builds a cross-file table-level DAG. Edges are
-  derived per statement (source tables → write target) across INSERT/CREATE/UPDATE/
-  MERGE/DELETE, then merged project-wide. Tables are classified as source inputs
-  (read-only), intermediate, or terminal outputs (write-only). Outputs: summary +
-  Mermaid (`flowchart LR`), or `--json` for tooling. One bad file degrades to a
-  recorded parse error instead of failing the scan. Verified on a 100+ file corpus
-  (200+ tables, 400+ edges, 0 errors). sqlglot's fallback warnings are silenced.
-- **v0.2.0 (impact analysis, done)** — `--impact TABLE` walks the project DAG for the
-  exact blast radius: direct consumers + full transitive downstream, plus the
-  first-hop files. `--impact TABLE.COLUMN` is best-effort (no schema): write
-  statements that read the table and reference the column explicitly or via
-  `SELECT *`, with the tables they write. Backed by per-statement records retained
-  on `ProjectGraph`. Verified on a real repo (`dim_campaign` → 30 direct / 47
-  transitive downstream).
-- **v0.2.0 (BigQuery cost lint + config, done)** — `.sqlucent.toml` (auto-discovered
-  from the file's directory upward, or `--config PATH`) tunes the linter without
-  code changes: `[rules] disable`, `[rules.severity]` overrides, and
-  `[cost.partitions]` declaring partitioned tables → partition columns. New rule
-  `partition-filter-missing` (high) fires when a declared partitioned table is
-  scanned with no `WHERE` filter on its partition column (full-table scan = $$$ in
-  BigQuery); it stays silent unless the table is declared, so no false positives.
-  A **baseline** workflow (`--write-baseline` to snapshot, `--baseline` to suppress)
-  grandfathers existing findings so teams can gate only *new* issues in CI.
-  `tomli` is a dependency only on Python < 3.11 (stdlib `tomllib` otherwise).
-- **v0.2.0 (schema-driven scan-cost estimate, done)** — `--cost --schema` makes the
-  cost concrete instead of boolean. BigQuery bills bytes scanned = referenced
-  columns × rows; columnar storage means you pay only for the columns you touch
-  (incl. `WHERE`/`JOIN` columns; `COUNT(*)` is metadata-only) and the partitions
-  you read. We qualify the query against the schema (expanding `SELECT *`), sum
-  per-column byte widths from types, and report bytes/row and the share of each
-  row scanned. With `[cost.table_rows]` (+ `partition_selectivity`, `price_per_tb`,
-  `string_bytes`) it yields absolute bytes and dollars — e.g. a full scan at 1.2 TB
-  / $8.00 collapses to 35.8 GB / $0.24 once a partition filter prunes it.
-  Variable-width types use a configurable assumption, so totals are estimates.
-- **v0.5+** — VS Code extension (right-click "explain this"); dbt/warehouse schema
-  auto-discovery; semantic SQL diff; bytes-scanned estimates from schema.
+- **Project-level table lineage.** Point `sqlucent` at a *directory* and it scans
+  every `.sql` file and builds a cross-file table-level DAG. Edges are derived per
+  statement (source tables → write target) across INSERT/CREATE/UPDATE/MERGE/DELETE,
+  then merged project-wide. Tables are classified as source inputs (read-only),
+  intermediate, or terminal outputs (write-only). Outputs: summary + Mermaid
+  (`flowchart LR`), or `--json` for tooling. One bad file degrades to a recorded
+  parse error instead of failing the scan. Verified on a 100+ file corpus (200+
+  tables, 400+ edges, 0 errors). sqlglot's fallback warnings are silenced.
+- **Impact analysis.** `--impact TABLE` walks the project DAG for the exact blast
+  radius: direct consumers + full transitive downstream, plus the first-hop files.
+  `--impact TABLE.COLUMN` is best-effort (no schema): write statements that read the
+  table and reference the column explicitly or via `SELECT *`, with the tables they
+  write. Backed by per-statement records retained on `ProjectGraph`. Verified on a
+  real repo (`dim_campaign` → 30 direct / 47 transitive downstream).
+- **BigQuery cost lint + config.** `.sqlucent.toml` (auto-discovered from the file's
+  directory upward, or `--config PATH`) tunes the linter without code changes:
+  `[rules] disable`, `[rules.severity]` overrides, and `[cost.partitions]` declaring
+  partitioned tables → partition columns. New rule `partition-filter-missing` (high)
+  fires when a declared partitioned table is scanned with no `WHERE` filter on its
+  partition column (full-table scan = $$$ in BigQuery); it stays silent unless the
+  table is declared, so no false positives. A **baseline** workflow
+  (`--write-baseline` to snapshot, `--baseline` to suppress) grandfathers existing
+  findings so teams can gate only *new* issues in CI. `tomli` is a dependency only
+  on Python < 3.11 (stdlib `tomllib` otherwise).
+- **Schema-driven scan-cost estimate.** `--cost --schema` makes the cost concrete
+  instead of boolean. BigQuery bills bytes scanned = referenced columns × rows;
+  columnar storage means you pay only for the columns you touch (incl. `WHERE`/`JOIN`
+  columns; `COUNT(*)` is metadata-only) and the partitions you read. We qualify the
+  query against the schema (expanding `SELECT *`), sum per-column byte widths from
+  types, and report bytes/row and the share of each row scanned. With
+  `[cost.table_rows]` (+ `partition_selectivity`, `price_per_tb`, `string_bytes`) it
+  yields absolute bytes and dollars — e.g. a full scan at 1.2 TB / $8.00 collapses
+  to 35.8 GB / $0.24 once a partition filter prunes it. Variable-width types use a
+  configurable assumption, so totals are estimates.
+
+### Planned (0.3.0+)
+
+- **VS Code extension** — right-click "explain this" over a selected query.
+- **dbt / warehouse schema auto-discovery** — pull column types from a dbt
+  `manifest.json` or a live warehouse so lineage, `SELECT *` expansion, and cost
+  become precise without a hand-written `--schema`.
+- **Semantic SQL diff** — explain how two versions of a query differ in meaning,
+  not just in text.
+
+Known remaining rough edges (not yet addressed): Jinja inside string literals
+yields odd placeholder literals (cosmetic).
 
 Distribution mirrors `pq`: brew tap, releases, good `--help`, a tutorial doc.
 
