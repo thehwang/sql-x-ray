@@ -1,0 +1,85 @@
+{
+  "name": "sqlucent-vscode",
+  "displayName": "SQLucent — SQL X-Ray",
+  "description": "See through any SQL: interactive data-flow diagram, CTE responsibilities, and lineage — right inside VS Code and Cursor.",
+  "version": "0.1.0",
+  "publisher": "thehwang",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/thehwang/sql-x-ray.git",
+    "directory": "vscode-extension"
+  },
+  "engines": {
+    "vscode": "^1.85.0"
+  },
+  "categories": [
+    "Visualization",
+    "Programming Languages",
+    "Other"
+  ],
+  "keywords": [
+    "sql",
+    "bigquery",
+    "lineage",
+    "data-flow",
+    "explain"
+  ],
+  "main": "./out/extension.js",
+  "contributes": {
+    "commands": [
+      {
+        "command": "sqlucent.explainSql",
+        "title": "SQLucent: Explain this SQL",
+        "category": "SQLucent"
+      }
+    ],
+    "menus": {
+      "editor/context": [
+        {
+          "command": "sqlucent.explainSql",
+          "when": "editorLangId == sql || editorHasSelection",
+          "group": "navigation@9"
+        }
+      ],
+      "explorer/context": [
+        {
+          "command": "sqlucent.explainSql",
+          "when": "resourceExtname == .sql",
+          "group": "navigation@9"
+        }
+      ],
+      "commandPalette": [
+        {
+          "command": "sqlucent.explainSql",
+          "when": "editorIsOpen"
+        }
+      ]
+    },
+    "configuration": {
+      "title": "SQLucent",
+      "properties": {
+        "sqlucent.path": {
+          "type": "string",
+          "default": "sqlucent",
+          "markdownDescription": "Path to the `sqlucent` executable. Leave as `sqlucent` if it is on your PATH (`pip install sqlucent`)."
+        },
+        "sqlucent.dialect": {
+          "type": "string",
+          "default": "bigquery",
+          "description": "SQL dialect passed to sqlucent (e.g. bigquery, postgres, snowflake)."
+        }
+      }
+    }
+  },
+  "scripts": {
+    "vscode:prepublish": "npm run compile",
+    "compile": "tsc -p ./",
+    "watch": "tsc -watch -p ./"
+  },
+  "devDependencies": {
+    "@types/node": "^20.11.0",
+    "@types/vscode": "^1.85.0",
+    "typescript": "^5.4.0"
+  }
+}
